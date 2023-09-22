@@ -3,8 +3,10 @@ import pandas as pd
 import matplotlib
 from collections import Counter
 from matplotlib import pyplot as plt
-
+import copy
 import tkinter
+from tkinter.simpledialog import askstring, askinteger
+from tkinter import ttk
 import cv2 as cv
 
 #idea - gui app for dqm analytics
@@ -44,8 +46,51 @@ masterguide["Merging Skill"] = masterguide["Merging Skill"].fillna("Unknown")
 random_monsters = lambda x: masterguide.sample(x)
 
 #test, prints a crosstab of merging skills by family
-family_health = pd.crosstab(masterguide['Family'], masterguide['Merging Skill'])
-family_health.plot.bar(legend=True, title="Merging Skills by Family")
-plt.show()
+#family_health = pd.crosstab(masterguide['Family'], masterguide['Merging Skill'])
+#family_health.plot.bar(legend=True, title="Merging Skills by Family")
+#plt.show()
 
 #now for the funny
+monster_window = tkinter.Tk()
+monster_window.title("The Great Quest")
+monster_window.geometry("500x500")
+
+#code to one-click generate nice little tables for each family
+
+def show_monsters(family):
+    fammed = masterguide.groupby("Family")
+    fammed = fammed.get_group(family)
+    newroot = tkinter.Tk()
+    newroot.title('%s Family' % family)
+    cols = list(masterguide.columns)
+
+    review = ttk.Treeview(newroot)
+    review.pack()
+    review['columns'] = cols
+    for c in cols:
+        review.column(c, anchor="w")
+        review.heading(c, text=c, anchor='w')
+
+    for index, row in fammed.iterrows():
+        review.insert("",0,text=index,values=list(row))
+
+    verscrlbar = ttk.Scrollbar(newroot, orient ="horizontal", command = review.xview)
+    verscrlbar.pack(side ='bottom', fill ='x')
+    newroot.mainloop()
+
+#populates main gui with buttons to display tables for each family
+
+buttons = {}
+y_offset = 0
+for v in list(set(masterguide["Family"].values)):
+    buttons[v] = tkinter.Button(monster_window, text="%s Family" % v, command=lambda v=v: show_monsters(v))
+    buttons[v].place(x=25, y=50*(y_offset+1))
+    y_offset += 1
+
+custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=show_analytics_window)
+custom_filters.place(x=350, y=50*y_offset)
+
+custom_filters = tkinter.Button(monster_window, text="Analytics", command=superfilter)
+custom_filters.place(x=350, y=50*(y_offset-1))
+
+monster_window.mainloop()
