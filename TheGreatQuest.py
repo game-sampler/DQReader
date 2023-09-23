@@ -6,11 +6,61 @@ from matplotlib import pyplot as plt
 import copy
 import tkinter
 from tkinter.simpledialog import askstring, askinteger
+import tkinter.font as tkinterfont
 from tkinter import ttk
 import cv2 as cv
 
 #idea - gui app for dqm analytics
 #also comparing images to monster images because its funny
+
+#class for converting pandas dataframes to tkinter treeviews
+class DFViewer():
+    def __init__(self, dataframe, predicate, label, w, h, scrollbar=True, sort_buttons=False):
+        #basic setup
+        self.root = tkinter.Tk()
+        self.root.geometry("%sx%s" % (w, h))
+        self.root.title(label)
+        self.dataframe = dataframe
+        cols = list(dataframe.columns)
+
+        #generates the treeview and slaps it onto the window
+        self.table = ttk.Treeview(self.root, selectmode='extended')
+        self.table.pack(fill='both')
+        self.table['columns'] = cols
+        for c in cols:
+
+            #gets a column width by running the given numeric predicate using the column and dataframe
+            col_w = predicate(c, self.dataframe)
+            self.table.column(c, anchor="w", width=col_w)
+            self.table.heading(c, text=c, anchor='w')
+
+        #inserts all values
+        for index, row in self.dataframe.iterrows():
+            self.table.insert("",0,text=index,values=list(row))
+        
+        #sets up scrollbar
+        if scrollbar:
+            scroller = ttk.Scrollbar(self.root, orient ="horizontal", command = self.table.xview)
+            scroller.pack(fill='x')
+            self.table.config(xscrollcommand=scroller.set)
+        
+        #sets up buttons to sort the data by each column
+        if sort_buttons:
+            for attr in self.dataframe.columns:
+                button = tkinter.Button(self.root, text="Sort by %s" % attr, command=lambda attr=attr: self.sort_by_col(attr))
+                button.pack(side="left", expand=True, fill='x')
+    
+    #column sort function
+    def sort_by_col(self, col):
+        self.dataframe = self.dataframe.sort_values(by=[col], ascending=True)
+        self.update_from_dataframe()
+
+    #updates the table with new values from the dataframe
+    def update_from_dataframe(self):
+        for i in self.table.get_children():
+            self.table.delete(i)
+        for index, row in self.dataframe.iterrows():
+            self.table.insert("",0,text=index,values=list(row))
 
 #grabs masterguide from folder - errors and exits if not found
 try:
@@ -42,8 +92,16 @@ masterguide["Family"] = masterguide["Family"].apply(lambda x: x.strip().replace(
 masterguide["Merging Trait"] = masterguide["Merging Trait"].fillna("Unknown")
 masterguide["Merging Skill"] = masterguide["Merging Skill"].fillna("Unknown")
 
+#name-indexes monsters for ease of use
+masterguide.set_index('Name')
+
 #random monster picker
 random_monsters = lambda x: masterguide.sample(x)
+
+#basic window width predicate for monster viewing
+def basic_predicate(c, tb):
+    extragap = 7 if c in ["Atk", "Def", "Agi", "Int", "HP", "MP"] else 0
+    return max(max(font.measure(str(i))+extragap, font.measure(c)+4) for i in tb[c])
 
 #test, prints a crosstab of merging skills by family
 #family_health = pd.crosstab(masterguide['Family'], masterguide['Merging Skill'])
@@ -55,31 +113,13 @@ monster_window = tkinter.Tk()
 monster_window.title("The Great Quest")
 monster_window.geometry("500x500")
 
-#code to one-click generate nice little tables for each family
+#code to one-click generate nice little tables for each family using the DFViewer class
 
 def show_monsters(family):
-    fammed = masterguide.groupby("Family")
-    fammed = fammed.get_group(family)
-    newroot = tkinter.Tk()
-    newroot.title('%s Family' % family)
-    cols = list(masterguide.columns)
-
-    review = ttk.Treeview(newroot)
-    review.pack()
-    review['columns'] = cols
-    for c in cols:
-        review.column(c, anchor="w")
-        review.heading(c, text=c, anchor='w')
-
-    for index, row in fammed.iterrows():
-        review.insert("",0,text=index,values=list(row))
-
-    verscrlbar = ttk.Scrollbar(newroot, orient ="horizontal", command = review.xview)
-    verscrlbar.pack(side ='bottom', fill ='x')
-    newroot.mainloop()
+    win = DFViewer(masterguide.groupby("Family").get_group(family), basic_predicate, "%s Family" % family, 1500, 350, sort_buttons=True)
+    win.root.mainloop()
 
 #populates main gui with buttons to display tables for each family
-
 buttons = {}
 y_offset = 0
 for v in list(set(masterguide["Family"].values)):
@@ -87,10 +127,17 @@ for v in list(set(masterguide["Family"].values)):
     buttons[v].place(x=25, y=50*(y_offset+1))
     y_offset += 1
 
-custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=show_analytics_window)
+#custom filters and analytics tbd
+custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=lambda: 1)
 custom_filters.place(x=350, y=50*y_offset)
+analytics = tkinter.Button(monster_window, text="Analytics", command=lambda: 1)
+analytics.place(x=350, y=50*(y_offset-1))
 
-custom_filters = tkinter.Button(monster_window, text="Analytics", command=superfilter)
-custom_filters.place(x=350, y=50*(y_offset-1))
+#font setup to allow measurement for width setting
+font = tkinterfont.Font(family="Consolas", size=10, weight="normal")
 
-monster_window.mainloop()
+#finally, runs program
+#monster_window.mainloop()
+
+f = DFViewer(masterguide.describe(), lambda c, d: 60, "Stats", 400, 400)
+f.root.mainloop()
