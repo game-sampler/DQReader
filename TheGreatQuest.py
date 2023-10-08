@@ -103,11 +103,6 @@ def basic_predicate(c, tb):
     extragap = 7 if c in ["Atk", "Def", "Agi", "Int", "HP", "MP"] else 0
     return max(max(font.measure(str(i))+extragap, font.measure(c)+4) for i in tb[c])
 
-#test, prints a crosstab of merging skills by family
-#family_health = pd.crosstab(masterguide['Family'], masterguide['Merging Skill'])
-#family_health.plot.bar(legend=True, title="Merging Skills by Family")
-#plt.show()
-
 #now for the funny
 monster_window = tkinter.Tk()
 monster_window.title("The Great Quest")
@@ -116,28 +111,39 @@ monster_window.geometry("500x500")
 #code to one-click generate nice little tables for each family using the DFViewer class
 
 def show_monsters(family):
-    win = DFViewer(masterguide.groupby("Family").get_group(family), basic_predicate, "%s Family" % family, 1500, 350, sort_buttons=True)
+    table = masterguide.groupby("Family").get_group(family) if family != "All Monsters" else masterguide
+    win = DFViewer(table, basic_predicate, "%s Family" % family, 1500, 350, sort_buttons=True)
     win.root.mainloop()
 
 #populates main gui with buttons to display tables for each family
 buttons = {}
 y_offset = 0
-for v in list(set(masterguide["Family"].values)):
-    buttons[v] = tkinter.Button(monster_window, text="%s Family" % v, command=lambda v=v: show_monsters(v))
+for v in ["All Monsters"] + list(set(masterguide["Family"].values)):
+    buttons[v] = tkinter.Button(monster_window, text=("%s Family" % v) if v != "All Monsters" else v, command=lambda v=v: show_monsters(v))
     buttons[v].place(x=25, y=50*(y_offset+1))
     y_offset += 1
 
 #custom filters and analytics tbd
 custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=lambda: 1)
 custom_filters.place(x=350, y=50*y_offset)
+
+#idea - custom filter by the following:
+#in breed recipe (e.g. searching zoma returns all monsters that use him in their breed recipe) - some text cleaning required, maybe yoink the code from breeder
+#name search
+#skill search
+#traits search (e.g. searching for "heat up" shows all monsters that have it)
+#locational search
+
 analytics = tkinter.Button(monster_window, text="Analytics", command=lambda: 1)
 analytics.place(x=350, y=50*(y_offset-1))
+
+#analytics:
+#not sure what to do here, maybe the crosstab stuff
+#knowing quantities of what (i.e. how many x are y) is a good start
+#stat averages perhaps? how many monsters have a specific trait? (inputted by close match with difflib to avoid translation issues to an extent)
 
 #font setup to allow measurement for width setting
 font = tkinterfont.Font(family="Consolas", size=10, weight="normal")
 
 #finally, runs program
-#monster_window.mainloop()
-
-f = DFViewer(masterguide.describe(), lambda c, d: 60, "Stats", 400, 400)
-f.root.mainloop()
+monster_window.mainloop()
