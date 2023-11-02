@@ -8,7 +8,6 @@ import tkinter
 from tkinter.simpledialog import askstring, askinteger
 import tkinter.font as tkinterfont
 from tkinter import ttk
-import cv2 as cv
 
 #idea - gui app for dqm analytics
 #also comparing images to monster images because its funny
@@ -106,7 +105,7 @@ def basic_predicate(c, tb):
 #now for the funny
 monster_window = tkinter.Tk()
 monster_window.title("The Great Quest")
-monster_window.geometry("500x500")
+monster_window.geometry("500x600")
 
 #code to one-click generate nice little tables for each family using the DFViewer class
 
@@ -124,7 +123,41 @@ for v in ["All Monsters"] + list(set(masterguide["Family"].values)):
     y_offset += 1
 
 #custom filters and analytics tbd
-custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=lambda: 1)
+def filter_window():
+    window = tkinter.Tk()
+    window.geometry("300x300")
+    window.title("Custom Filters")
+    textbox = tkinter.Entry(window)
+    textbox.place(x=100, y=0)
+    def run_filter(arg):
+        term = textbox.get()
+        filtered = masterguide.copy()
+        if term == "":
+            #error dialog
+            return
+        else:
+            if arg == "Trait Search":
+                filtered = filtered[filtered['Traits'].str.contains(term, case=False)]
+            if arg == "Name Search":
+                filtered[filtered['Name'].str.contains(term, case=False)]
+            if arg == "Skill Search":
+                filtered[filtered['Traits'].str.lower() == term.lower()]
+            if arg == "Location Search":
+                filtered[filtered['Traits'].str.contains(term, case=False)]
+            if arg == "Breed Search":
+                pass
+                #this is the painful one since we have to correct for guide errors and name discrepancies, wait for now
+        filterview = DFViewer(filtered, basic_predicate, "Search Results", 1500, 350, sort_buttons=True)
+        filterview.root.mainloop()
+    buttons = {}
+    y_offset = 0
+    for v in ["Trait Search", "Name Search", "Skill Search", "Location Search", "Breed Search"]:
+        buttons[v] = tkinter.Button(window, text=v, command=lambda arg=v: run_filter(arg))
+        buttons[v].place(x=25, y=50*(y_offset+1))
+        y_offset += 1
+    window.mainloop()
+
+custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=filter_window)
 custom_filters.place(x=350, y=50*y_offset)
 
 #idea - custom filter by the following:
@@ -136,11 +169,10 @@ custom_filters.place(x=350, y=50*y_offset)
 
 analytics = tkinter.Button(monster_window, text="Analytics", command=lambda: 1)
 analytics.place(x=350, y=50*(y_offset-1))
-
 #analytics:
 #not sure what to do here, maybe the crosstab stuff
 #knowing quantities of what (i.e. how many x are y) is a good start
-#stat averages perhaps? how many monsters have a specific trait? (inputted by close match with difflib to avoid translation issues to an extent)
+#stat averages perhaps? how many monsters have a specific trait? (errors should be ironed out at this point)
 
 #font setup to allow measurement for width setting
 font = tkinterfont.Font(family="Consolas", size=10, weight="normal")
