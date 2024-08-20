@@ -105,7 +105,7 @@ def basic_predicate(c, tb):
 #now for the funny
 monster_window = tkinter.Tk()
 monster_window.title("The Great Quest")
-monster_window.geometry("500x600")
+monster_window.geometry("500x300")
 
 #code to one-click generate nice little tables for each family using the DFViewer class
 
@@ -119,7 +119,7 @@ buttons = {}
 y_offset = 0
 for v in ["All Monsters"] + list(set(masterguide["Family"].values)):
     buttons[v] = tkinter.Button(monster_window, text=("%s Family" % v) if v != "All Monsters" else v, command=lambda v=v: show_monsters(v))
-    buttons[v].place(x=25, y=50*(y_offset+1))
+    buttons[v].place(x=25, y=25*(y_offset+1))
     y_offset += 1
 
 #custom filters and analytics tbd
@@ -139,14 +139,13 @@ def filter_window():
             if arg == "Trait Search":
                 filtered = filtered[filtered['Traits'].str.contains(term, case=False)]
             if arg == "Name Search":
-                filtered[filtered['Name'].str.contains(term, case=False)]
+                filtered = filtered[filtered['Name'].str.contains(term, case=False)]
             if arg == "Skill Search":
-                filtered[filtered['Traits'].str.lower() == term.lower()]
+                filtered = filtered[filtered['Traits'].str.lower() == term.lower()]
             if arg == "Location Search":
-                filtered[filtered['Traits'].str.contains(term, case=False)]
+                filtered = filtered[filtered['Location'].str.contains(term, case=False)]
             if arg == "Breed Search":
-                pass
-                #this is the painful one since we have to correct for guide errors and name discrepancies, wait for now
+                filtered = filtered[filtered['Recipe'].str.contains(term, case=False)]
         filterview = DFViewer(filtered, basic_predicate, "Search Results", 1500, 350, sort_buttons=True)
         filterview.root.mainloop()
     buttons = {}
@@ -158,17 +157,35 @@ def filter_window():
     window.mainloop()
 
 custom_filters = tkinter.Button(monster_window, text="Custom Filters", command=filter_window)
-custom_filters.place(x=350, y=50*y_offset)
+custom_filters.place(x=350, y=75)
 
-#idea - custom filter by the following:
-#in breed recipe (e.g. searching zoma returns all monsters that use him in their breed recipe) - some text cleaning required, maybe yoink the code from breeder
-#name search
-#skill search
-#traits search (e.g. searching for "heat up" shows all monsters that have it)
-#locational search
+def analytics_window():
+    window = tkinter.Tk()
+    window.geometry("300x300")
+    window.title("Analytics Options")
+    #generic histogram function
+    def histogram(cols, bins, xl, yl):
+        plt.hist([masterguide[x] for x in cols], bins, histtype='bar', label=cols)
+        plt.legend(loc='upper right')
+        plt.xlabel(xl)
+        plt.ylabel(yl)
+        plt.show()
+    stat_histo = tkinter.Button(window, text="View Stat Histogram", command=lambda: histogram(['Atk', 'Def', 'Agi', 'Int', 'HP', 'MP'], 200, 'Stat Value', 'Number of Monsters'))
+    size_histo = tkinter.Button(window, text="View Size Histogram", command=lambda: histogram(['Size'], 4, 'Monster Size', 'Number of Monsters'))
+    T = tkinter.Text(window, height = 8, width = 52)
+    l = tkinter.Label(window, text = "Stat Averages")
+    l.config(font =("Courier", 14))
+    l.pack()
+    T.pack()
+    for s in ['Atk', 'Def', 'Agi', 'Int', 'HP', 'MP']:
+        T.insert(tkinter.END, '%s Average: %f\n' % (s, masterguide[s].mean()))
+    stat_histo.pack()
+    size_histo.pack()
+    T.config(state = tkinter.DISABLED)
+    window.mainloop()
 
-analytics = tkinter.Button(monster_window, text="Analytics", command=lambda: 1)
-analytics.place(x=350, y=50*(y_offset-1))
+analytics = tkinter.Button(monster_window, text="Analytics", command=analytics_window)
+analytics.place(x=350, y=50)
 #analytics:
 #not sure what to do here, maybe the crosstab stuff
 #knowing quantities of what (i.e. how many x are y) is a good start
