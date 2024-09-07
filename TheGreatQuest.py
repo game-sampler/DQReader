@@ -1,4 +1,4 @@
-import openpyxl, difflib
+import openpyxl, difflib, os
 import pandas as pd
 import matplotlib
 from collections import Counter
@@ -62,8 +62,12 @@ class DFViewer():
             self.table.insert("",0,text=index,values=list(row))
 
 #grabs masterguide from folder - errors and exits if not found
+
+print()
+
 try:
-    masterguide = pd.read_excel("MasterGuide.xlsx", sheet_name=0)
+    guide_path = os.path.dirname(os.path.realpath(__file__)) + "\\MasterGuide.xlsx"
+    masterguide = pd.read_excel(guide_path, sheet_name=0)
 except:
     raise FileNotFoundError("No master's guide found or it is not in the same directory as this program. Please download it here: https://docs.google.com/spreadsheets/d/1oAOL4wj39wknnP2iIHIX3jBoVQ6iUERwiVBLu63sBxU/edit#gid=0.")
 
@@ -133,7 +137,7 @@ def filter_window():
         term = textbox.get()
         filtered = masterguide.copy()
         if term == "":
-            #error dialog
+            tkinter.messagebox.showerror('Error', 'No search term.')
             return
         else:
             if arg == "Trait Search":
@@ -141,13 +145,16 @@ def filter_window():
             if arg == "Name Search":
                 filtered = filtered[filtered['Name'].str.contains(term, case=False)]
             if arg == "Skill Search":
-                filtered = filtered[filtered['Traits'].str.lower() == term.lower()]
+                filtered = filtered[filtered['Skill'].str.contains(term, case=False)]
             if arg == "Location Search":
                 filtered = filtered[filtered['Location'].str.contains(term, case=False)]
             if arg == "Breed Search":
                 filtered = filtered[filtered['Recipe'].str.contains(term, case=False)]
-        filterview = DFViewer(filtered, basic_predicate, "Search Results", 1500, 350, sort_buttons=True)
-        filterview.root.mainloop()
+        if len(filtered) == 0:
+            tkinter.messagebox.showinfo('', 'No results found!')
+        else:
+            filterview = DFViewer(filtered, basic_predicate, "Search Results", 1500, 350, sort_buttons=True)
+            filterview.root.mainloop()
     buttons = {}
     y_offset = 0
     for v in ["Trait Search", "Name Search", "Skill Search", "Location Search", "Breed Search"]:
