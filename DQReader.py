@@ -1,12 +1,13 @@
-import os
+import os, numpy
 import pandas as pd
 from matplotlib import pyplot as plt
 import tkinter
 import tkinter.font as tkinterfont
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import openpyxl
 from openpyxl_image_loader import SheetImageLoader
-from PIL import ImageTk
+from PIL import ImageTk, Image
+import cv2
 
 #idea - gui app for dqm analytics
 #also comparing images to monster images because its funny
@@ -20,6 +21,10 @@ class DFViewer():
         self.root.title(label)
         self.dataframe = dataframe
         cols = list(dataframe.columns)
+
+        #shows search numbers and what have you
+        label = tkinter.Label(self.root, text="%d entries found" % len(dataframe))
+        label.pack(side="top")
 
         #generates the treeview and slaps it onto the window
         self.table = ttk.Treeview(self.root, selectmode='extended')
@@ -76,26 +81,26 @@ class DFViewer():
 
 if __name__ == "__main__":
     #grabs masterguide from folder - errors and exits if not found
-    try:
-        guide_path = os.path.dirname(os.path.realpath(__file__)) + "\\MasterGuide.xlsx"
-        masterguide = pd.read_excel(guide_path, sheet_name=0)
-        img = openpyxl.load_workbook(guide_path)
-        act = img['Monsters ']
-        dt = []
-        for a in act.iter_rows(min_col=1, max_col=1):
-            loc = a[0].coordinate
-            image_loader = SheetImageLoader(act)
-            if image_loader.image_in(loc):
-                image = image_loader.get(loc)
-                image.resize((300, 300))
-                dt.append(image)
-            else:
-                print("image fail at cell %s, substituting slime image" % loc)
-                if len(dt):
-                    dt.append(dt[0])
-            
-    except:
-        raise FileNotFoundError("No master's guide found or it is not in the same directory as this program. Please download it here: https://docs.google.com/spreadsheets/d/1oAOL4wj39wknnP2iIHIX3jBoVQ6iUERwiVBLu63sBxU/edit#gid=0.")
+    guide_path = os.path.dirname(os.path.realpath(__file__)) + "\\MasterGuide.xlsx"
+    
+    #image loading code
+    masterguide = pd.read_excel(guide_path, sheet_name=0)
+    img = openpyxl.load_workbook(guide_path)
+    act = img['Monsters ']
+    dt = []
+    for a in act.iter_rows(min_col=1, max_col=1):
+        loc = a[0].coordinate
+        image_loader = SheetImageLoader(act)
+        if image_loader.image_in(loc):
+            image = image_loader.get(loc)
+            image.resize((300, 300))
+            dt.append(image)
+        else:
+            print("image fail at cell %s, substituting slime image" % loc)
+            if len(dt):
+                dt.append(dt[0])
+    dt = dt[:722]
+    comp_imgs = [cv2.cvtColor(numpy.array(i), cv2.COLOR_RGB2BGR) for i in dt]
 
     #drops first row and column
     masterguide = masterguide.drop(0)
@@ -223,6 +228,48 @@ if __name__ == "__main__":
     #not sure what to do here, maybe the crosstab stuff
     #knowing quantities of what (i.e. how many x are y) is a good start
     #stat averages perhaps? how many monsters have a specific trait? (errors should be ironed out at this point)
+
+
+    #comparison method for image searching
+    def compare_histograms(image1, image2):
+        hist1 = cv2.calcHist([image1], [0], None, [256], [0, 256])
+        hist2 = cv2.calcHist([image2], [0], None, [256], [0, 256])
+
+        similarity_score = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
+        return similarity_score
+
+    def imsearch_window():
+        window = tkinter.Toplevel()
+        window.geometry("300x300")
+        window.title("Image Search")
+        l = tkinter.Label(window, text="Display how many results?")
+        l.pack()
+        textbox = tkinter.Entry(window)
+        textbox.pack()
+        def monsearch():
+            term = textbox.get()
+            if term == "":
+                term = 750
+            term = int(term)
+            #prep target image for opencv
+            file_path = filedialog.askopenfilename()
+            if file_path:
+                im = Image.open(file_path)
+                im = cv2.cvtColor(numpy.array(im), cv2.COLOR_RGB2BGR)
+                scores = [(compare_histograms(i, im)) for i in comp_imgs]
+                cln = masterguide.copy()
+                cln['Similarity Score'] = scores
+                cln = cln.nlargest(term, ['Similarity Score'])
+                cln = cln.sort_values(by=['Similarity Score'], ascending=True)
+                m = DFViewer(cln, basic_predicate, "Search Results", 1500, 350, sort_buttons=True)
+                m.root.mainloop()
+        button = tkinter.Button(window, text="Open File", command=monsearch)
+        button.pack()
+
+        window.mainloop()
+
+    imsearch = tkinter.Button(monster_window, text="Image Search", command=imsearch_window)
+    imsearch.place(x=350, y=25)
 
     #font setup to allow measurement for width setting
     font = tkinterfont.Font(family="Consolas", size=10, weight="normal")
